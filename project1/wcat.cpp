@@ -1,6 +1,7 @@
 #include <iostream>
 #include <fcntl.h>
 #include <unistd.h>
+#include <cstring>
 
 //Print out content of files
 void printFile(const char* filename) {
