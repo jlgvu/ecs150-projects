@@ -1,0 +1,79 @@
+#include <iostream>
+#include <string>
+#include <unistd.h>
+#include <sys/wait.h>
+
+using namespace std;
+
+//cd C:/Users/joshl/OneDrive/Documents/GitHub/ecs150-projects/project2/processes-shell
+//g++ -o wish wish.cpp
+
+
+const int MAX_ARGS = 256;
+const int MAX_COMMAND_LENGTH = 1024;
+
+void print_prompt() {
+    cout << "wish> ";
+}
+
+void execute_command(const char* command, char* const args[]) {
+    pid_t pid = fork();
+    if (pid < 0) {
+        perror("fork");
+    } else if (pid == 0) {
+        // Child process
+        if (execvp(command, args) < 0) {
+            perror("execvp");
+            exit(EXIT_FAILURE);
+        }
+    } else {
+        // Parent process
+        wait(NULL);
+    }
+}
+
+int main(int argc, char* argv[]) {
+    bool interactive_mode = true;
+    FILE* input_file = stdin;
+    string batch_filename;
+
+    // Check if batch mode is enabled
+    if (argc > 1) {
+        interactive_mode = false;
+        batch_filename = argv[1];
+        input_file = fopen(batch_filename.c_str(), "r");
+        if (!input_file) {
+            perror("fopen");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    // Main loop
+    while (true) {
+        if (interactive_mode) {
+            print_prompt();
+        }
+
+        // Read command
+        char command_line[MAX_COMMAND_LENGTH];
+        if (fgets(command_line, sizeof(command_line), input_file) == NULL) {
+            // End of file or error
+            if (interactive_mode) {
+                cout << endl;
+            }
+            break;
+        }
+
+        // Parse command
+        // Here you will parse the command_line and split it into command and arguments
+
+        // Execute command
+        // Here you will call execute_command with the parsed command and arguments
+    }
+
+    if (!interactive_mode) {
+        fclose(input_file);
+    }
+
+    return 0;
+}
