@@ -1,5 +1,6 @@
 #include <iostream>
 #include <string>
+#include <vector>
 #include <unistd.h>
 #include <sys/wait.h>
 #include <cstring>
@@ -21,26 +22,36 @@ void print_error_message() {
     char error_message[30] = "An error has occurred\n";
     write(STDERR_FILENO, error_message, strlen(error_message));
 }
- 
+
 // Function to execute a command with arguments
-void execute_command(const char* command, char* const args[]) {
-    // Create a child process
-    pid_t pid = fork();
-    if (pid < 0) {
-        // Fork failed
-        print_error_message();
-    } else if (pid == 0) {
-        // Child process
-        // Execute the command
-        execv(command, args);
-        // If execv returns, it indicates an error
-        print_error_message();
-        exit(EXIT_FAILURE);
-    } else {
-        // Parent process
-        // Wait for the child process to complete
-        wait(NULL);
+void execute_command(const char* command, char* const args[], const vector<string>& path_directories) {
+    // Try executing the command from each directory in the path
+    for (const string& directory : path_directories) {
+        string full_command = directory + "/" + command;
+        if (access(full_command.c_str(), X_OK) == 0) {
+            // Command found and is executable
+            pid_t pid = fork();
+            if (pid < 0) {
+                // Fork failed
+                print_error_message();
+            } else if (pid == 0) {
+                // Child process
+                // Execute the command
+                execv(full_command.c_str(), args);
+                // If execv returns, it indicates an error
+                print_error_message();
+                exit(EXIT_FAILURE);
+            } else {
+                // Parent process
+                // Wait for the child process to complete
+                wait(NULL);
+                return; // Exit after the command is executed
+            }
+        }
     }
+    
+    // If the command is not found in any directory in the path
+    print_error_message();
 }
 
 // Function to check if the command is "exit"
@@ -52,6 +63,7 @@ int main(int argc, char* argv[]) {
     bool interactive_mode = true;
     FILE* input_file = stdin;
     string batch_filename;
+    vector<string> path_directories = {"/bin"}; // Initial path with /bin
 
     // Check if batch mode is enabled
     if (argc > 1) {
@@ -94,8 +106,20 @@ int main(int argc, char* argv[]) {
                 exit(0);
             }
 
+            // Check if the command is "path"
+            if (strcmp(command, "path") == 0) {
+                // Update path with the arguments passed to "path" command
+                path_directories.clear();
+                char* directory = strtok(NULL, " \n");
+                while (directory != NULL) {
+                    path_directories.push_back(directory);
+                    directory = strtok(NULL, " \n");
+                }
+                continue; // Continue to next iteration without executing the command
+            }
+
             // Execute the command
-            execute_command(command, NULL);
+            execute_command(command, NULL, path_directories);
         }
     }
 
