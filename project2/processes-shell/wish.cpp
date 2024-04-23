@@ -11,6 +11,7 @@ using namespace std;
 
 const int MAX_ARGS = 256;
 const int MAX_COMMAND_LENGTH = 1024;
+const string DEFAULT_PATH = "/bin"; // Default path
 
 // Function to print the shell prompt
 void print_prompt() {
@@ -54,16 +55,48 @@ void execute_command(const char* command, char* const args[], const vector<strin
     print_error_message();
 }
 
+// Function to handle the cd command
+void handle_cd_command(const char* directory) {
+    // Change directory using chdir
+    if (chdir(directory) != 0) {
+        // chdir failed
+        print_error_message();
+    }
+}
+
+// Function to handle the path command
+void handle_path_command(char* const args[], vector<string>& path_directories) {
+    // Clear the existing path vector
+    path_directories.clear();
+
+    // Add directories from args to path_directories vector
+    int i = 1;
+    while (args[i] != NULL) {
+        path_directories.push_back(args[i]);
+        i++;
+    }
+}
+
 // Function to check if the command is "exit"
 bool is_exit_command(const char* command) {
     return strcmp(command, "exit") == 0;
+}
+
+// Function to check if the command is "cd"
+bool is_cd_command(const char* command) {
+    return strcmp(command, "cd") == 0;
+}
+
+// Function to check if the command is "path"
+bool is_path_command(const char* command) {
+    return strcmp(command, "path") == 0;
 }
 
 int main(int argc, char* argv[]) {
     bool interactive_mode = true;
     FILE* input_file = stdin;
     string batch_filename;
-    vector<string> path_directories = {"/bin"}; // Initial path with /bin
+    vector<string> path_directories = {DEFAULT_PATH}; // Initial path with DEFAULT_PATH
 
     // Check if batch mode is enabled
     if (argc > 1) {
@@ -97,7 +130,6 @@ int main(int argc, char* argv[]) {
         }
 
         // Parse command line into command and arguments
-        // For now, let's assume the command is just one word
         char* command = strtok(command_line, " \n");
         if (command != NULL) {
             // Check if the command is "exit"
@@ -105,21 +137,27 @@ int main(int argc, char* argv[]) {
                 // Exit the shell
                 exit(0);
             }
-
-            // Check if the command is "path"
-            if (strcmp(command, "path") == 0) {
-                // Update path with the arguments passed to "path" command
-                path_directories.clear();
-                char* directory = strtok(NULL, " \n");
-                while (directory != NULL) {
-                    path_directories.push_back(directory);
-                    directory = strtok(NULL, " \n");
-                }
-                continue; // Continue to next iteration without executing the command
+            // Check if the command is "cd"
+            else if (is_cd_command(command)) {
+                // Handle the cd command
+                handle_cd_command(strtok(NULL, " \n"));
             }
-
-            // Execute the command
-            execute_command(command, NULL, path_directories);
+            // Check if the command is "path"
+            else if (is_path_command(command)) {
+                // Handle the path command
+                char* args[MAX_ARGS];
+                args[0] = command;
+                for (int i = 1; i < MAX_ARGS; i++) {
+                    args[i] = strtok(NULL, " \n");
+                    if (args[i] == NULL) break;
+                }
+                handle_path_command(args, path_directories);
+            }
+            // Execute other commands
+            else {
+                // Execute the command
+                execute_command(command, NULL, path_directories);
+            }
         }
     }
 
