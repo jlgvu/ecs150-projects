@@ -25,7 +25,7 @@ void print_error_message() {
 }
 
 // Function to execute a command with arguments
-void execute_command(const char* command, char* const args[], const vector<string>& path_directories) {
+void execute_command(const char* command, vector<string>& args, const vector<string>& path_directories) {
     // Try executing the command from each directory in the path
     for (const string& directory : path_directories) {
         string full_command = directory + "/" + command;
@@ -37,8 +37,52 @@ void execute_command(const char* command, char* const args[], const vector<strin
                 print_error_message();
             } else if (pid == 0) {
                 // Child process
+
+                // Check if output redirection is requested
+                bool redirect_output = false;
+                string output_file;
+                for (size_t i = 0; i < args.size(); ++i) {
+                    if (args[i] == ">") {
+                        if (redirect_output) {
+                            // Multiple redirection symbols
+                            print_error_message();
+                            exit(EXIT_FAILURE);
+                        }
+                        if (i + 1 < args.size()) {
+                            redirect_output = true;
+                            output_file = args[i + 1];
+                            // Remove the redirection symbols and filename from args
+                            args.erase(args.begin() + i, args.begin() + i + 2);
+                            --i; // Adjust index after removing elements
+                        } else {
+                            // Missing filename after ">"
+                            print_error_message();
+                            exit(EXIT_FAILURE);
+                        }
+                    }
+                }
+
+                // Redirect standard output and error if necessary
+                if (redirect_output) {
+                    int file_descriptor = open(output_file.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+                    if (file_descriptor < 0) {
+                        print_error_message();
+                        exit(EXIT_FAILURE);
+                    }
+                    dup2(file_descriptor, STDOUT_FILENO);
+                    dup2(file_descriptor, STDERR_FILENO);
+                    close(file_descriptor);
+                }
+
+                // Build the argument array
+                vector<char*> exec_args(args.size() + 1);
+                for (size_t i = 0; i < args.size(); ++i) {
+                    exec_args[i] = const_cast<char*>(args[i].c_str());
+                }
+                exec_args[args.size()] = nullptr;
+
                 // Execute the command
-                execv(full_command.c_str(), args);
+                execv(full_command.c_str(), exec_args.data());
                 // If execv returns, it indicates an error
                 print_error_message();
                 exit(EXIT_FAILURE);
@@ -65,15 +109,13 @@ void handle_cd_command(const char* directory) {
 }
 
 // Function to handle the path command
-void handle_path_command(char* const args[], vector<string>& path_directories) {
+void handle_path_command(const vector<string>& args, vector<string>& path_directories) {
     // Clear the existing path vector
     path_directories.clear();
 
     // Add directories from args to path_directories vector
-    int i = 1;
-    while (args[i] != NULL) {
+    for (size_t i = 1; i < args.size(); ++i) {
         path_directories.push_back(args[i]);
-        i++;
     }
 }
 
@@ -130,34 +172,35 @@ int main(int argc, char* argv[]) {
         }
 
         // Parse command line into command and arguments
-        char* command = strtok(command_line, " \n");
-        if (command != NULL) {
-            // Check if the command is "exit"
-            if (is_exit_command(command)) {
-                // Exit the shell
-                exit(0);
-            }
-            // Check if the command is "cd"
-            else if (is_cd_command(command)) {
-                // Handle the cd command
-                handle_cd_command(strtok(NULL, " \n"));
-            }
-            // Check if the command is "path"
-            else if (is_path_command(command)) {
-                // Handle the path command
-                char* args[MAX_ARGS];
-                args[0] = command;
-                for (int i = 1; i < MAX_ARGS; i++) {
-                    args[i] = strtok(NULL, " \n");
-                    if (args[i] == NULL) break;
-                }
-                handle_path_command(args, path_directories);
-            }
-            // Execute other commands
-            else {
-                // Execute the command
-                execute_command(command, NULL, path_directories);
-            }
+        string command_str(command_line);
+        size_t pos = command_str.find_first_of(" \n");
+        string command = command_str.substr(0, pos);
+        vector<string> args;
+        while (pos != string::npos) {
+            size_t next_pos = command_str.find_first_of(" \n", pos + 1);
+            args.push_back(command_str.substr(pos + 1, next_pos - pos - 1));
+            pos = next_pos;
+        }
+
+        // Check if the command is "exit"
+        if (is_exit_command(command.c_str())) {
+            // Exit the shell
+            exit(0);
+        }
+        // Check if the command is "cd"
+        else if (is_cd_command(command.c_str())) {
+            // Handle the cd command
+            handle_cd_command(args.size() > 0 ? args[0].c_str() : "");
+        }
+        // Check if the command is "path"
+        else if (is_path_command(command.c_str())) {
+            // Handle the path command
+            handle_path_command(args, path_directories);
+        }
+        // Execute other commands
+        else {
+            // Execute the command
+            execute_command(command.c_str(), args, path_directories);
         }
     }
 
