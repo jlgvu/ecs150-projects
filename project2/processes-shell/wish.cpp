@@ -2,12 +2,10 @@
 #include <string>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <cstdlib>
+#include <cstring>
 
 using namespace std;
-
-//cd C:/Users/joshl/OneDrive/Documents/GitHub/ecs150-projects/project2/processes-shell
-//g++ -o wish wish.cpp
-
 
 const int MAX_ARGS = 256;
 const int MAX_COMMAND_LENGTH = 1024;
@@ -16,14 +14,19 @@ void print_prompt() {
     cout << "wish> ";
 }
 
+void print_error_message() {
+    char error_message[30] = "An error has occurred\n";
+    write(STDERR_FILENO, error_message, strlen(error_message));
+}
+
 void execute_command(const char* command, char* const args[]) {
     pid_t pid = fork();
     if (pid < 0) {
-        perror("fork");
+        print_error_message();
     } else if (pid == 0) {
         // Child process
         if (execvp(command, args) < 0) {
-            perror("execvp");
+            print_error_message();
             exit(EXIT_FAILURE);
         }
     } else {
@@ -38,12 +41,15 @@ int main(int argc, char* argv[]) {
     string batch_filename;
 
     // Check if batch mode is enabled
-    if (argc > 1) {
+    if (argc > 2) {
+        print_error_message();
+        exit(EXIT_FAILURE);
+    } else if (argc == 2) {
         interactive_mode = false;
         batch_filename = argv[1];
         input_file = fopen(batch_filename.c_str(), "r");
         if (!input_file) {
-            perror("fopen");
+            print_error_message();
             exit(EXIT_FAILURE);
         }
     }
@@ -65,9 +71,11 @@ int main(int argc, char* argv[]) {
         }
 
         // Parse command
-        // Here you will parse the command_line and split it into command and arguments
+        // Parse the command_line and split it into command and arguments
 
         // Execute command
-        // Here you will call execute_command with the parsed command and arguments
+        // Call execute_command with the parsed command and arguments
     }
+
+    return 0;
 }
