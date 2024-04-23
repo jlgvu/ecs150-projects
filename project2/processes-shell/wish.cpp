@@ -185,7 +185,15 @@ int main(int argc, char* argv[]) {
         // Check if the command is "exit"
         if (is_exit_command(command.c_str())) {
             // Exit the shell
-            exit(0);
+            //exit(0);
+            char* arg = strtok(command_line, " \n");
+            arg = strtok(NULL, " \n"); // Get the next token after the command
+            if (arg != NULL) {
+                print_error_message();
+            } else {
+                // Exit the shell
+                exit(0);
+    }
         }
         // Check if the command is "cd"
         else if (is_cd_command(command.c_str())) {
